@@ -134,7 +134,7 @@ app.post("/register", async (req, res) => {
   }
 
   try {
-    const existingUser = await User.findOne({ usrname });
+    const existingUser = await User.findOne({ usrname: usrname.trim() });
     if (existingUser) {
       return res.status(400).json({ msg: "Username already taken" });
     }
@@ -142,7 +142,7 @@ app.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
-      usrname,
+      usrname: usrname.trim(),
       password: hashedPassword,
     });
 
