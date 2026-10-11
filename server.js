@@ -3,14 +3,47 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
+const { rateLimit } = require("express-rate-limit");
 require('dotenv').config();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/SetSync"
 
 const app = express();
 
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cors());
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many login attempts. Please try again in 15 minutes."
+  }
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many registration attempts. Please try again later."
+  }
+});
+
+const joinGroupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many invite-code attempts. Please try again later."
+  }
+});
+
 
 // Mongoose connection
 async function main() {
@@ -126,7 +159,8 @@ app.get("/", async (req, res) => {
 });
 
 //user
-app.post("/register", async (req, res) => {
+
+app.post("/register", registerLimiter, async (req, res) => {
   const { usrname, password } = req.body;
 
   if (!usrname || !password || usrname.trim() === "" || password.trim() === "") {
@@ -159,7 +193,8 @@ app.post("/register", async (req, res) => {
   }
 });
 
-app.post("/login", async (req, res) => {
+
+app.post("/login", loginLimiter, async (req, res) => {
   let { usrname, password } = req.body;
 
   if (!usrname || !password || usrname.trim() === "" || password.trim() === "") {
@@ -314,7 +349,8 @@ app.post("/create-group", authenticateUser, async (req, res) => {
   }
 });
 
-app.post("/join-group", authenticateUser, async (req, res) => {
+
+app.post("/join-group", authenticateUser, joinGroupLimiter, async (req, res) => {
   const { inviteCode } = req.body;
 
   if (!inviteCode || inviteCode.trim() === "") {
