@@ -10,9 +10,33 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/SetSyn
 
 const app = express();
 
-app.set("trust proxy", 1);
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  ...(process.env.NODE_ENV !== "production"
+    ? ["http://localhost:5173", "http://localhost:3000"]
+    : []),
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header, such as server-to-server
+      // requests. CORS itself only controls browser access.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false,
+    optionsSuccessStatus: 204,
+  })
+);
 app.use(express.json());
 app.use(cors());
+app.set("trust proxy", 1);
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

@@ -2,7 +2,7 @@ require('dotenv').config();
 const API_URL = process.env.API_URL;
 
 const TOTAL_REQUESTS = 10_000;
-const CONCURRENCY = 10;
+const CONCURRENCY = 5000;
 
 if (!API_URL) {
   console.error("Set API_URL to your own backend URL.");
