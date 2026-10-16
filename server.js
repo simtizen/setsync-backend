@@ -473,6 +473,32 @@ app.get("/setlists", authenticateUser, async (req, res) => {
   }
 });
 
+app.get("/setlists/:id", authenticateUser, async (req, res) => {
+  const setlistId = req.params.id;
+
+  if (!setlistId) {
+    return res.status(400).json({ error: "Setlist ID is required" });
+  }
+
+  try {
+    const setlist = await setList.findById(setlistId);
+
+    if (!setlist) {
+      return res.status(404).json({ error: "Setlist not found" });
+    }
+
+    if (!req.user.group || setlist.group.toString() !== req.user.group.toString()) {
+      return res.status(403).json({ error: "You cannot access a setlist from another group" });
+    }
+
+    return res.status(200).json(setlist);
+  } catch (err) {
+    console.error({ "Fetch Setlist Error": err });
+    return res.status(500).json({ error: "Error fetching setlist" });
+  }
+});
+
+
 //profile
 app.get("/profile", authenticateUser, async (req, res) => {
   try {
