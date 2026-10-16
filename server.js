@@ -75,6 +75,11 @@ async function main() {
 }
 main().catch((err) => console.error("Database connection error:", err));
 
+// Helper to hash session tokens with SHA-256
+const hashToken = (token) => {
+  return crypto.createHash("sha256").update(token).digest("hex");
+};
+
 // Schemas & Models
 const userSchema = new mongoose.Schema({
   usrname: { type: String, required: true, unique: true },
@@ -85,7 +90,7 @@ const userSchema = new mongoose.Schema({
     ref: "Group",
     default: null
   },
-  token: { type: String, default: null }
+  token: { type: String, default: null, select: false, index: true }
 });
 
 const setlistSchema = new mongoose.Schema({
@@ -131,10 +136,15 @@ const requireAdmin = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized:Invalid or expired Session" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const rawToken = authHeader.split(" ")[1];
+  if (!rawToken || rawToken.trim() === "") {
+    return res.status(401).json({ error: "Unauthorized:Invalid or expired Session" });
+  }
+
+  const hashedToken = hashToken(rawToken.trim());
 
   try {
-    const user = await User.findOne({ token: token });
+    const user = await User.findOne({ token: hashedToken });
 
     if (!user || user.role !== 'admin') {
       console.log(user, user.role)
@@ -158,10 +168,15 @@ const authenticateUser = async (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized: No token provided." });
   }
 
-  const token = authHeader.split(" ")[1];
+  const rawToken = authHeader.split(" ")[1];
+  if (!rawToken || rawToken.trim() === "") {
+    return res.status(401).json({ error: "Unauthorized: No token provided." });
+  }
+
+  const hashedToken = hashToken(rawToken.trim());
 
   try {
-    const user = await User.findOne({ token: token });
+    const user = await User.findOne({ token: hashedToken });
 
     if (!user) {
       return res.status(401).json({ error: "Invalid or expired Session" });
@@ -240,7 +255,7 @@ app.post("/login", loginLimiter, async (req, res) => {
 
     const loginToken = crypto.randomBytes(64).toString("hex");
 
-    user.token = loginToken;
+    user.token = hashToken(loginToken);
     await user.save();
 
     const userResponse = user.toObject();
