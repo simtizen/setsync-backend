@@ -75,7 +75,6 @@ async function main() {
 }
 main().catch((err) => console.error("Database connection error:", err));
 
-// Helper to hash session tokens with SHA-256
 const hashToken = (token) => {
   return crypto.createHash("sha256").update(token).digest("hex");
 };
@@ -197,7 +196,6 @@ app.get("/", async (req, res) => {
 });
 
 //user
-
 app.post("/register", registerLimiter, async (req, res) => {
   const { usrname, password } = req.body;
 
@@ -277,7 +275,6 @@ app.post("/login", loginLimiter, async (req, res) => {
 
 app.post("/logout", authenticateUser, async (req, res) => {
   try {
-    // req.user is ALREADY the database document attached by authenticateUser!
     req.user.token = null;
     await req.user.save();
 
@@ -402,16 +399,22 @@ app.post("/join-group", authenticateUser, joinGroupLimiter, async (req, res) => 
       return res.status(404).json({ error: "Group not found" });
     }
 
-    let user = await User.findById(req.user._id);
+    if (req.user.role === "admin") {
+      const otherAdminExists = await User.findOne({
+        group: req.user.group,
+        role: "admin",
+        _id: { $ne: req.user._id }
+      });
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      if (!otherAdminExists) {
+        return res.status(400).json({ error: "You are currently admin and your group has no other admin. Make someone else admin." });
+      }
     }
 
-    user.group = group._id;
-    user.role = 'member';
+    req.user.group = group._id;
+    req.user.role = 'member';
 
-    await user.save();
+    await req.user.save();
 
     return res.json({
       msg: "Successfully joined group",
@@ -693,8 +696,6 @@ app.get("/admin/groups/get-invite-code/:groupId", requireAdmin, async (req, res)
     if (!group) {
       return res.status(400).json({ error: "group not found" });
     }
-
-    const groupInviteCode = group.inviteCode
 
     return res.json({ inviteCode: group.inviteCode });
 
